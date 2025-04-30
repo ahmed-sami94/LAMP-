@@ -1,4 +1,4 @@
-# 🚀 LAMP+ Docker Image
+# 🚀 LAMP+ 
 
 A custom all-in-one **LAMP stack Docker image** built on Ubuntu with:
 
@@ -12,6 +12,11 @@ A custom all-in-one **LAMP stack Docker image** built on Ubuntu with:
 - GPLv3 Licensed and fully open-source
 
 ---
+## 🌟 Screenshots
+![image](https://github.com/user-attachments/assets/5110140b-c780-4194-8295-d601871f3097)
+![image](https://github.com/user-attachments/assets/5f319ecc-e686-45c6-9b21-9acd6a8231f6)
+![image](https://github.com/user-attachments/assets/6a65766c-8072-488d-a865-64b4920c0bb5)
+
 
 ## 🌟 Features
 
