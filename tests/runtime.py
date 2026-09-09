@@ -93,7 +93,8 @@ def main():
     docker("exec", NAME, "python3", "-c", f"from pathlib import Path; Path('/srv/sites/{first}/public/index.html').write_text('Changed')")
     perform(session, csrf, "backup.restore", {"site": first, "backup": snapshot, "confirm": "wrong.localhost"}, expect="failed")
     perform(session, csrf, "backup.restore", {"site": first, "backup": snapshot, "confirm": "studio.localhost"})
-    assert "Website ready" in requests.get(BASE, headers={"Host": "studio.localhost"}, timeout=20).text
+    restored = requests.get(BASE, headers={"Host": "studio.localhost"}, timeout=20)
+    assert restored.status_code == 200 and "Website ready" in restored.text, (restored.status_code, restored.text[:500])
     docker("restart", NAME)
     ready()
     session, csrf = login()

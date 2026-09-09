@@ -5,6 +5,7 @@ from pathlib import Path
 import secrets
 import shutil
 import signal
+import stat
 import subprocess
 import time
 
@@ -75,6 +76,24 @@ def php_command(site, script, arguments):
         raise
 
 
+def public_permissions(root, uid):
+    # Descriptor-based changes cannot follow an uploaded symlink outside the root.
+    for directory, _, files, descriptor in os.fwalk(root, follow_symlinks=False):
+        os.fchown(descriptor, uid, 1600)
+        os.fchmod(descriptor, 0o2770)
+        for name in files:
+            handle = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=descriptor)
+            try:
+                info = os.fstat(handle)
+                if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+                    raise ValueError("Public content must contain regular, unlinked files.")
+                os.fchown(handle, uid, 1600)
+                private_config = Path(directory) == root and name == "configuration.php"
+                os.fchmod(handle, 0o600 if private_config else 0o660)
+            finally:
+                os.close(handle)
+
+
 def create_site(data, progress):
     host = hostname(data.get("hostname"))
     config = json.loads((STATE / "panel.json").read_text())
@@ -143,6 +162,7 @@ def create_site(data, progress):
             (home / "public/index.html").write_text("<!doctype html><title>Website ready</title><h1>Website ready</h1>")
             os.chown(home / "public/index.html", site["uid"], 1600)
         progress("Activating Apache and PHP-FPM")
+        public_permissions(home / "public", site["uid"])
         site_config(site)
         reload_services()
         site["status"] = "ready"
@@ -249,6 +269,7 @@ def restore(data, progress):
     try:
         with (source / "files.tar.gz").open("rb") as archive:
             as_site(site, ["python3", "/opt/lampplus/restore-files.py", str(stage)], stdin=archive)
+        public_permissions(stage / "public", site["uid"])
         for name in ("sessions", "tmp"):
             folder = stage / name
             folder.mkdir(mode=0o700)
