@@ -3,6 +3,7 @@ import base64
 from datetime import timedelta
 import hashlib
 import hmac
+from http.cookies import SimpleCookie
 import ipaddress
 import json
 import os
@@ -126,8 +127,15 @@ def create_app(config=None):
         is_files = request.path.startswith("/filebrowser/")
         base = "http://127.0.0.1:" + ("8081" if is_files else "8088")
         forwarded = {key: value for key, value in request.headers.items() if key.lower() in
-                     ("content-type", "accept", "range", "if-none-match", "cookie", "referer", "origin", "x-requested-with")}
+                     ("content-type", "accept", "range", "if-none-match", "referer", "origin", "x-requested-with")}
+        tool_cookies = SimpleCookie()
+        for name, value in request.cookies.items():
+            if name != app.config["SESSION_COOKIE_NAME"]:
+                tool_cookies[name] = value
+        if tool_cookies:
+            forwarded["Cookie"] = "; ".join(m.OutputString() for m in tool_cookies.values())
         forwarded["Host"] = request.host
+        forwarded["X-Forwarded-Proto"] = "https" if config["mode"] == "hosting" else "http"
         forwarded["Accept-Encoding"] = "identity"
         if is_files:
             def b64(value):
@@ -145,7 +153,13 @@ def create_app(config=None):
         response = Response(upstream.iter_content(65536), status=upstream.status_code,
                             headers=[(k, v) for k, v in upstream.headers.items() if k.lower() not in excluded])
         for cookie in upstream.raw.headers.getlist("Set-Cookie"):
-            response.headers.add("Set-Cookie", cookie)
+            parsed = SimpleCookie(cookie)
+            for name, morsel in parsed.items():
+                if name == app.config["SESSION_COOKIE_NAME"]:
+                    continue
+                if config["mode"] == "hosting":
+                    morsel["secure"] = True
+                response.headers.add("Set-Cookie", morsel.OutputString())
         response.call_on_close(upstream.close)
         return response
 

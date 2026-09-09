@@ -51,6 +51,17 @@ def login():
     return session, csrf
 
 
+def start_container(with_secret=True):
+    environment = dict(os.environ, LAMP_ADMIN_PASSWORD=PASSWORD)
+    command = ["docker", "run", "-d", "--name", NAME, "-p", "127.0.0.1:8080:80",
+               "-v", "lampplus-test-sites:/srv/sites", "-v", "lampplus-test-db:/var/lib/mysql",
+               "-v", "lampplus-test-state:/var/lib/lampplus", "-v", "lampplus-test-backups:/var/backups/lampplus"]
+    if with_secret:
+        command += ["-e", "LAMP_ADMIN_PASSWORD"]
+    subprocess.run([*command, IMAGE], env=environment, check=True, capture_output=True, timeout=180)
+    ready()
+
+
 def perform(session, csrf, action, data, expect="complete"):
     print("Testing operation:", action, data.get("hostname", data.get("site", "")), flush=True)
     response = session.post(BASE + "/api/actions/" + action, json=data, headers={"X-CSRF-Token": csrf})
@@ -69,11 +80,7 @@ def perform(session, csrf, action, data, expect="complete"):
 def main():
     result = subprocess.run(["docker", "run", "--rm", IMAGE], capture_output=True, timeout=30)
     assert result.returncode != 0, "Missing secrets must fail"
-    environment = dict(os.environ, LAMP_ADMIN_PASSWORD=PASSWORD)
-    subprocess.run(["docker", "run", "-d", "--name", NAME, "-e", "LAMP_ADMIN_PASSWORD", "-p", "127.0.0.1:8080:80",
-                    "-v", "lampplus-test-sites:/srv/sites", "-v", "lampplus-test-db:/var/lib/mysql", "-v", "lampplus-test-state:/var/lib/lampplus",
-                    "-v", "lampplus-test-backups:/var/backups/lampplus", IMAGE], env=environment, check=True, capture_output=True)
-    ready()
+    start_container()
     assert requests.get(BASE + "/api/overview", timeout=20).status_code == 401
     assert requests.get(BASE + "/", headers={"Host": "unknown.localhost"}, timeout=20).status_code == 403
     session, csrf = login()
@@ -91,10 +98,12 @@ def main():
     snapshot = perform(session, csrf, "backup.create", {"site": first})["backup"]
     assert snapshot
     docker("exec", NAME, "python3", "-c", f"from pathlib import Path; Path('/srv/sites/{first}/public/index.html').write_text('Changed')")
+    docker("exec", NAME, "mariadb", "--protocol=socket", "-e", f"UPDATE `{first}`.acceptance SET value=99")
     perform(session, csrf, "backup.restore", {"site": first, "backup": snapshot, "confirm": "wrong.localhost"}, expect="failed")
     perform(session, csrf, "backup.restore", {"site": first, "backup": snapshot, "confirm": "studio.localhost"})
     restored = requests.get(BASE, headers={"Host": "studio.localhost"}, timeout=20)
     assert restored.status_code == 200 and "Website ready" in restored.text, (restored.status_code, restored.text[:500])
+    assert docker("exec", NAME, "mariadb", "--protocol=socket", "-BN", "-e", f"SELECT value FROM `{first}`.acceptance").strip() == "42"
     docker("restart", NAME)
     ready()
     session, csrf = login()
@@ -112,6 +121,23 @@ def main():
     for cms in ("wordpress", "joomla"):
         perform(session, csrf, "site.create", {"hostname": cms + ".localhost", "title": cms.title(), "cms": cms,
             "username": "site-owner", "email": "owner@example.test", "password": secrets.token_urlsafe(30)})
+    # Recreate from the same four volumes without providing the initial secret.
+    docker("stop", "--time", "30", NAME)
+    assert json.loads(docker("inspect", NAME))[0]["State"]["ExitCode"] == 0, "Shutdown was not graceful"
+    docker("rm", NAME)
+    start_container(with_secret=False)
+    session, csrf = login()
+    assert len(session.get(BASE + "/api/overview").json()["sites"]) == 4
+    assert docker("exec", NAME, "mariadb", "--protocol=socket", "-BN", "-e", f"SELECT value FROM `{first}`.acceptance").strip() == "42"
+    for cms in ("wordpress", "joomla"):
+        page = session.get(BASE + "/", headers={"Host": cms + ".localhost"}, allow_redirects=False)
+        assert page.status_code in (200, 301, 302), (cms, page.status_code)
+    for service in ("php", "filebrowser", "mariadb"):
+        docker("exec", NAME, "supervisorctl", "stop", service)
+        check = subprocess.run(["docker", "exec", NAME, "python3", "/opt/lampplus/health.py"], capture_output=True, timeout=20)
+        assert check.returncode != 0, service + " failure was not detected"
+        docker("exec", NAME, "supervisorctl", "start", service)
+    ready()
     docker("exec", NAME, "python3", "-c", "import pathlib; print(pathlib.Path('/opt/lampplus/packages.txt').read_text())")
     Path("artifacts").mkdir(exist_ok=True)
     docker("cp", NAME + ":/opt/lampplus/packages.txt", "artifacts/packages.txt")

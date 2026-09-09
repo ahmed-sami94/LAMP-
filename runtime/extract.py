@@ -11,6 +11,9 @@ with tarfile.open(archive) as package:
     members = package.getmembers()
     for member in members:
         if kind == "wordpress":
+            if member.name.rstrip("/") == "wordpress" and member.isdir():
+                member.name = ""
+                continue
             if not member.name.startswith("wordpress/"):
                 raise ValueError("Unexpected package layout")
             member.name = member.name[len("wordpress/"):]

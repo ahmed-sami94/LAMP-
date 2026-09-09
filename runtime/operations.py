@@ -140,7 +140,12 @@ def create_site(data, progress):
         atomic_json(STATE / f"{key}.json", {"database": key, "username": key, "password": password})
         if cms != "empty":
             progress("Extracting verified " + cms + " package")
-            as_site(site, ["python3", "/opt/lampplus/extract.py", f"/opt/lampplus/{cms}.tar.gz", str(home / "public"), cms])
+            try:
+                as_site(site, ["python3", "/opt/lampplus/extract.py", f"/opt/lampplus/{cms}.tar.gz", str(home / "public"), cms])
+            except CommandFailed as error:
+                atomic_json(STATE / "last-install-error.json", {"site": key, "phase": "extraction",
+                    "diagnostic": error.stderr.decode(errors="replace")[-8000:]})
+                raise
             progress("Installing " + cms)
             if cms == "wordpress":
                 php_command(site, "/usr/local/bin/wp", ["config", "create", "--dbname=" + key, "--dbuser=" + key,

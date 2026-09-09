@@ -89,6 +89,7 @@ Header always set Referrer-Policy same-origin
 </VirtualHost>
 <VirtualHost 127.0.0.1:8088>
     ServerName tools.internal
+    SetEnvIf X-Forwarded-Proto "^https$" HTTPS=on
     Alias /phpmyadmin /opt/lampplus/phpmyadmin
     <Directory /opt/lampplus/phpmyadmin>
         Options -Indexes

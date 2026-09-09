@@ -73,7 +73,13 @@ def metrics():
                 services[name] = True
         except OSError:
             services[name] = False
-    services["PHP-FPM"] = Path("/run/php/tools.sock").exists()
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
+            connection.settimeout(1)
+            connection.connect("/run/php/tools.sock")
+        services["PHP-FPM"] = True
+    except OSError:
+        services["PHP-FPM"] = False
     used = None
     limit = None
     cgroup = Path("/sys/fs/cgroup")
