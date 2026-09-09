@@ -7,6 +7,8 @@ import secrets
 import subprocess
 import time
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 IMAGE = os.environ.get("TEST_IMAGE", "lampplus:test")
 NAME = "lampplus-test"
@@ -15,6 +17,11 @@ BASE = "http://localhost:8080"
 
 
 class BoundedSession(requests.Session):
+    def __init__(self):
+        super().__init__()
+        # Apache may close an idle keep-alive connection during a graceful reload.
+        self.mount("http://", HTTPAdapter(max_retries=Retry(total=3, backoff_factor=0.3, allowed_methods={"GET", "HEAD"})))
+
     def request(self, *args, **kwargs):
         kwargs.setdefault("timeout", 20)
         return super().request(*args, **kwargs)

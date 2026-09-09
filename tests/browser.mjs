@@ -24,7 +24,7 @@ try {
       await page.getByRole('button', {name: view, exact: true}).click();
       assert.equal(await page.locator('#heading').innerText(), view);
     }
-    await page.getByRole('button', {name: '+ New website', exact: true}).click();
+    await page.getByRole('button', {name: 'New website', exact: true}).click();
     await page.getByLabel('Application', {exact: true}).selectOption('wordpress');
     assert.equal(await page.locator('#cms-fields').isVisible(), true);
     await page.locator('#site-dialog').getByRole('button', {name: 'Close', exact: true}).click();

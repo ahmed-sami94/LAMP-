@@ -1,0 +1,9 @@
+.control-icon { width: 17px; height: 17px; flex: 0 0 17px; vertical-align: middle; }
+button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+nav button { justify-content: flex-start; gap: 10px; }
+nav .control-icon, .primary .control-icon, .danger .control-icon { filter: brightness(0) invert(1); }
+.row-actions .icon { width: 34px; height: 34px; border: 1px solid #c9d1d5; padding: 0; }
+td small a { color: #536b73; }
+label[for="application"] { margin-bottom: 7px; }
+#application { margin-bottom: 17px; }
+@media (max-width: 640px) { nav .control-icon { width: 15px; height: 15px; flex-basis: 15px; } }

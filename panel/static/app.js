@@ -11,14 +11,26 @@ async function action(name, data) {
   if (response.status === 401) { location.assign('/login'); throw new Error('Session expired'); }
   const result = await response.json();
   if (!response.ok) throw new Error(result.error || 'Operation could not be queued.');
-  notice('Operation queued. Progress is available in Activity.');
+  notice('Operation queued.');
   await refresh();
   return result;
 }
 function renderSites() {
   const filter = $('#search').value.toLowerCase();
   const rows = overview.sites.filter(site => (site.hostname + site.title).toLowerCase().includes(filter));
-  $('#site-list').innerHTML = rows.length ? `<table><thead><tr><th>Website</th><th>Application</th><th>Status</th><th>PHP memory</th><th>Actions</th></tr></thead><tbody>${rows.map(site => `<tr><td><strong>${escapeHTML(site.title)}</strong><small>${escapeHTML(site.hostname)}</small></td><td>${escapeHTML(site.cms === 'empty' ? 'Custom PHP / HTML' : site.cms)}</td><td><span class="status ${escapeHTML(site.status)}">${escapeHTML(site.status)}</span></td><td>${site.php.memory} MB</td><td>${site.status === 'ready' ? `<div class="row-actions"><button data-settings="${site.id}" title="PHP and backup settings">Settings</button><button data-backup="${site.id}" title="Create recovery point">Back up</button></div>` : 'Inspect Activity'}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No websites found.</div>';
+  $('#site-list').innerHTML = rows.length ? `<table><thead><tr><th>Website</th><th>Application</th><th>Status</th><th>PHP memory</th><th>Actions</th></tr></thead><tbody>${rows.map(siteRow).join('')}</tbody></table>` : '<div class="empty">No websites found.</div>';
+}
+function siteRow(site) {
+  const application = {empty: 'Custom PHP / HTML', wordpress: 'WordPress', joomla: 'Joomla'}[site.cms];
+  const address = `${location.protocol}//${site.hostname}${location.port ? ':' + location.port : ''}/`;
+  const actions = site.status === 'ready' ? `<div class="row-actions">
+    <button class="icon" data-settings="${site.id}" title="PHP and backup settings" aria-label="Settings for ${escapeHTML(site.hostname)}"><img class="control-icon" src="/static/icons/settings.svg" alt=""></button>
+    <button class="icon" data-backup="${site.id}" title="Create recovery point" aria-label="Back up ${escapeHTML(site.hostname)}"><img class="control-icon" src="/static/icons/archive.svg" alt=""></button>
+    </div>` : 'Setup incomplete';
+  const host = site.status === 'ready' ? `<a href="${escapeHTML(address)}" target="_blank" rel="noopener">${escapeHTML(site.hostname)}</a>` : escapeHTML(site.hostname);
+  return `<tr><td><strong>${escapeHTML(site.title)}</strong><small>${host}</small></td>
+    <td>${escapeHTML(application)}</td><td><span class="status ${escapeHTML(site.status)}">${escapeHTML(site.status)}</span></td>
+    <td>${site.php.memory} MB</td><td>${actions}</td></tr>`;
 }
 function render() {
   renderSites();
@@ -57,7 +69,11 @@ function handleForm(selector, handler) {
     try { await handler(form); form.closest('dialog').close(); } catch (error) { form.closest('dialog').close(); notice(error.message, true); } finally { button.disabled = false; }
   });
 }
-handleForm('#site-form', async form => { await action('site.create', Object.fromEntries(new FormData(form))); form.reset(); $('#cms-fields').hidden = true; });
+handleForm('#site-form', async form => {
+  await action('site.create', Object.fromEntries(new FormData(form)));
+  form.reset(); $('#cms-fields').hidden = true;
+  $('#cms-fields').querySelectorAll('input').forEach(input => { input.required = false; });
+});
 handleForm('#settings-form', async form => {
   const data = Object.fromEntries(new FormData(form));
   await action('php.update', {site: data.site, memory: Number(data.memory), upload: Number(data.upload), timeout: Number(data.timeout)});
