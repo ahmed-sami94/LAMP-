@@ -82,7 +82,7 @@ def main():
     second = perform(session, csrf, "site.create", {"hostname": "journal.localhost", "title": "Journal", "cms": "empty"})["site"]
     for host in ("studio.localhost", "journal.localhost"):
         response = requests.get(BASE, headers={"Host": host}, timeout=20)
-        assert response.status_code == 200 and "Website ready" in response.text
+        assert response.status_code == 200 and "Website ready" in response.text, (host, response.status_code, response.text[:500])
     perform(session, csrf, "site.create", {"hostname": "studio.localhost"}, expect="failed")
     perform(session, csrf, "site.create", {"hostname": "../bad"}, expect="failed")
     perform(session, csrf, "php.update", {"site": first, "memory": 320, "upload": 24, "timeout": 60})

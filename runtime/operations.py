@@ -99,6 +99,7 @@ def create_site(data, progress):
     home = SITES / key
     # The parent is root-owned. Never reuse, adopt, or empty an existing directory.
     home.mkdir(mode=0o755)
+    os.chmod(home, 0o755)
     save_site(site)
     database_created = False
     account_created = False

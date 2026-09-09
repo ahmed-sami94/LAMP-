@@ -9,7 +9,7 @@ their licenses and attribution are not replaced by the LAMP+ license.
 | Apache HTTP Server | https://httpd.apache.org/ | Apache-2.0 |
 | PHP | https://www.php.net/ | PHP-3.01 and bundled notices |
 | MariaDB | https://mariadb.org/ | GPL-2.0 and component notices |
-| phpMyAdmin | https://www.phpmyadmin.net/ | GPL-2.0-or-later |
+| phpMyAdmin | https://www.phpmyadmin.net/ | GPL-2.0-only |
 | FileBrowser Quantum | https://github.com/gtsteffaniak/filebrowser | Apache-2.0 and dependency notices |
 | Composer | https://getcomposer.org/ | MIT |
 | WP-CLI | https://wp-cli.org/ | MIT |
@@ -24,3 +24,9 @@ CMS archives and phpMyAdmin distributions include their license files. The relea
 SBOM and package manifest identify bundled dependency versions. Source download
 URLs and checksums are recorded in `dependencies.lock.json`. Redistribution must
 retain all upstream notices and satisfy the applicable source-offer obligations.
+
+LAMP+ rebuilds phpMyAdmin's production vendor directory from the committed
+`config/phpmyadmin/composer.lock`, within upstream version constraints, to replace
+vulnerable bundled dependencies. Development dependencies, plugins and install
+scripts are not executed. This packaging change is maintained by LAMP+, not an
+official phpMyAdmin distribution modification endorsed by its authors.
