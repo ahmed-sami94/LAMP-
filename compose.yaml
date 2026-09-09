@@ -1,5 +1,5 @@
 services:
-  lampplus:
+  app:
     image: ahmedsamigmail/lampplus:2.0.0-rc.1
     build:
       context: .
@@ -10,6 +10,7 @@ services:
       LAMP_ADMIN_USER: ${LAMP_ADMIN_USER:-admin}
       LAMP_ADMIN_PASSWORD: ${LAMP_ADMIN_PASSWORD:?Set a unique admin password}
       LAMP_MODE: ${LAMP_MODE:-development}
+      LAMP_PUBLIC_PORT: ${LAMP_HTTP_PORT:-8080}
     ports:
       - "127.0.0.1:${LAMP_HTTP_PORT:-8080}:80"
     volumes:

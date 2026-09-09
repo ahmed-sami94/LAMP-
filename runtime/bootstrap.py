@@ -27,6 +27,9 @@ def main():
     mode = os.environ.get("LAMP_MODE", "development")
     if mode not in ("development", "hosting"):
         raise ValueError("LAMP_MODE must be development or hosting.")
+    public_port = int(os.environ.get("LAMP_PUBLIC_PORT", "443" if mode == "hosting" else "80"))
+    if not 1 <= public_port <= 65535:
+        raise ValueError("LAMP_PUBLIC_PORT must be between 1 and 65535.")
     proxies = [str(ipaddress.ip_network(x.strip())) for x in os.environ.get("LAMP_TRUSTED_PROXIES", "").split(",") if x.strip()]
     if mode == "hosting" and not proxies:
         raise ValueError("Hosting requires explicit LAMP_TRUSTED_PROXIES and HTTPS.")
@@ -48,7 +51,7 @@ def main():
         atomic_json(account_file, {"user": os.environ.get("LAMP_ADMIN_USER", "admin"), "hash": generate_password_hash(password)})
     config_path = STATE / "panel.json"
     config = json.loads(config_path.read_text()) if config_path.exists() else {"key": secrets.token_hex(32), "filebrowser_key": secrets.token_hex(32)}
-    config.update(host=host, mode=mode, proxies=proxies)
+    config.update(host=host, mode=mode, proxies=proxies, public_port=public_port)
     atomic_json(config_path, config, 0o640, 1500)
     fbdir = STATE / "filebrowser"
     fbdir.mkdir(exist_ok=True)

@@ -57,7 +57,8 @@ entries when your browser/OS does not resolve `*.localhost` to loopback.
 | `LAMP_ADMIN_PASSWORD_FILE` | Alternative mounted secret file; do not set both |
 | `LAMP_MODE` | `development` for localhost HTTP; `hosting` requires trusted HTTPS proxy |
 | `LAMP_TRUSTED_PROXIES` | Explicit comma-separated proxy IP/CIDR allowlist for hosting |
-| `HTTP_PORT` | Localhost published port in development Compose; default `8080` |
+| `LAMP_HTTP_PORT` | Localhost published port in development Compose; default `8080` |
+| `LAMP_PUBLIC_PORT` | External website port used by CMS installers; Compose sets this from `LAMP_HTTP_PORT` |
 | `UBUNTU_IMAGE` | Exact base reference from the dependency lock |
 
 The provided development Compose uses an environment secret. A hosting example

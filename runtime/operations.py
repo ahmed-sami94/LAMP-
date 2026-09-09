@@ -148,9 +148,13 @@ def create_site(data, progress):
                 raise
             progress("Installing " + cms)
             if cms == "wordpress":
+                scheme = "https" if config["mode"] == "hosting" else "http"
+                default_port = 443 if scheme == "https" else 80
+                port = config.get("public_port", default_port)
+                address = scheme + "://" + host + (":" + str(port) if port != default_port else "")
                 php_command(site, "/usr/local/bin/wp", ["config", "create", "--dbname=" + key, "--dbuser=" + key,
                     "--dbpass=" + password, "--dbhost=localhost", "--skip-check"])
-                php_command(site, "/usr/local/bin/wp", ["core", "install", "--url=" + ("https://" if config["mode"] == "hosting" else "http://") + host,
+                php_command(site, "/usr/local/bin/wp", ["core", "install", "--url=" + address,
                     "--title=" + title, "--admin_user=" + data["username"], "--admin_password=" + data["password"], "--admin_email=" + data["email"], "--skip-email"])
                 # WordPress supports its configuration one level above the web root.
                 (home / "public/wp-config.php").replace(home / "wp-config.php")

@@ -3,7 +3,8 @@ import { readFile, mkdir } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
 const browser = await chromium.launch({headless: true});
-const password = (await readFile('artifacts/browser-secret', 'utf8')).trim();
+const credentials = JSON.parse(await readFile('artifacts/browser-secret', 'utf8'));
+const password = credentials.password;
 await mkdir('artifacts/screenshots', {recursive: true});
 try {
   for (const [name, width, height] of [['desktop', 1366, 900], ['mobile', 390, 844], ['tablet', 820, 1180]]) {
@@ -28,6 +29,15 @@ try {
     await page.getByLabel('Application', {exact: true}).selectOption('wordpress');
     assert.equal(await page.locator('#cms-fields').isVisible(), true);
     await page.locator('#site-dialog').getByRole('button', {name: 'Close', exact: true}).click();
+    if (name === 'desktop') {
+      await page.goto('http://localhost:8080/phpmyadmin/');
+      await page.locator('input[name="pma_username"]').fill(credentials.database.username);
+      await page.locator('input[name="pma_password"]').fill(credentials.database.password);
+      await page.locator('input[type="submit"], button[type="submit"]').first().click();
+      await page.getByText(credentials.database.database, {exact: true}).first().waitFor();
+      await page.goto('http://localhost:8080/filebrowser/');
+      await page.getByText('Websites', {exact: true}).first().waitFor();
+    }
     assert.deepEqual(errors, [], `${name} browser errors`);
     await page.close();
   }

@@ -60,7 +60,7 @@ def login():
 
 def start_container(with_secret=True):
     environment = dict(os.environ, LAMP_ADMIN_PASSWORD=PASSWORD)
-    command = ["docker", "run", "-d", "--name", NAME, "-p", "127.0.0.1:8080:80",
+    command = ["docker", "run", "-d", "--name", NAME, "-p", "127.0.0.1:8080:80", "-e", "LAMP_PUBLIC_PORT=8080",
                "-v", "lampplus-test-sites:/srv/sites", "-v", "lampplus-test-db:/var/lib/mysql",
                "-v", "lampplus-test-state:/var/lib/lampplus", "-v", "lampplus-test-backups:/var/backups/lampplus"]
     if with_secret:
@@ -137,8 +137,8 @@ def main():
     assert len(session.get(BASE + "/api/overview").json()["sites"]) == 4
     assert docker("exec", NAME, "mariadb", "--protocol=socket", "-BN", "-e", f"SELECT value FROM `{first}`.acceptance").strip() == "42"
     for cms in ("wordpress", "joomla"):
-        page = session.get(BASE + "/", headers={"Host": cms + ".localhost"}, allow_redirects=False)
-        assert page.status_code in (200, 301, 302), (cms, page.status_code)
+        page = session.get(BASE + "/", headers={"Host": cms + ".localhost:8080"}, allow_redirects=False)
+        assert page.status_code == 200, (cms, page.status_code, page.headers.get("Location"))
     for service in ("php", "filebrowser", "mariadb"):
         docker("exec", NAME, "supervisorctl", "stop", service)
         check = subprocess.run(["docker", "exec", NAME, "python3", "/opt/lampplus/health.py"], capture_output=True, timeout=20)
@@ -149,7 +149,8 @@ def main():
     Path("artifacts").mkdir(exist_ok=True)
     docker("cp", NAME + ":/opt/lampplus/packages.txt", "artifacts/packages.txt")
     # Screenshots can authenticate with a private temporary file, removed by CI.
-    Path("artifacts/browser-secret").write_text(PASSWORD)
+    credentials = json.loads(docker("exec", NAME, "cat", f"/var/lib/lampplus/{first}.json"))
+    Path("artifacts/browser-secret").write_text(json.dumps({"password": PASSWORD, "database": credentials}))
     os.chmod("artifacts/browser-secret", 0o600)
     print("Live startup, routing, persistence, security and CMS checks passed")
 
