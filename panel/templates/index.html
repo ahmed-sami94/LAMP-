@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% macro icon(name) -%}<img class="control-icon" src="/static/icons/{{ name }}.svg" alt="" width="17" height="17">{%- endmacro %}
+{% block body %}
+<header>
+  <a class="brand" href="/"><img src="/static/brand/logo.png" alt="" width="38" height="38">LAMP<span>+</span></a>
+  <span class="host">{{ host }}</span><span class="tag">{{ mode }}</span>
+  <form action="/logout" method="post"><input type="hidden" name="csrf" value="{{ session.csrf }}"><button class="quiet" type="submit" title="Sign out">{{ icon('log-out') }} Sign out</button></form>
+</header>
+<div class="layout">
+<nav aria-label="Main navigation">
+  <button data-view="websites" aria-current="page">{{ icon('globe') }}Websites</button>
+  <button data-view="services">{{ icon('activity') }}Services</button>
+  <button data-view="backups">{{ icon('archive') }}Backups</button>
+  <button data-view="activity">{{ icon('history') }}Activity</button>
+  <div class="nav-label">TOOLS</div>
+  <a href="/phpmyadmin/">phpMyAdmin {{ icon('external-link') }}</a>
+  <a href="/filebrowser/">File Browser {{ icon('external-link') }}</a>
+  <footer>Ubuntu / PHP-FPM<br>2.0.0-rc.1</footer>
+</nav>
+<main>
+  <div id="notice" class="notice" role="status" hidden></div>
+  <div class="page-title"><div><p class="eyebrow">WORKSPACE</p><h1 id="heading">Websites</h1></div><button id="new-site" class="primary">{{ icon('plus') }}New website</button></div>
+  <div id="metrics" class="metrics" aria-live="polite"><p>Loading service measurements...</p></div>
+  <section id="websites" class="view"><div class="section-title"><h2>All websites</h2><input id="search" type="search" aria-label="Filter websites" placeholder="Search websites"></div><div id="site-list" class="table-wrap"></div></section>
+  <section id="services" class="view" hidden><h2>Container services</h2><div id="service-list"></div><p class="muted" id="metric-scope"></p></section>
+  <section id="backups" class="view" hidden><h2>Recovery points</h2><div id="backup-list" class="table-wrap"></div></section>
+  <section id="activity" class="view" hidden><h2>Recent operations</h2><div id="job-list"></div></section>
+  <footer class="main-footer">{% include 'attribution.html' %}<span id="updated">Connecting</span></footer>
+</main>
+</div>
+<dialog id="site-dialog">
+  <form id="site-form">
+    <div class="dialog-heading"><h2>New website</h2><button type="button" class="icon close" aria-label="Close" title="Close">{{ icon('x') }}</button></div>
+    <label>Hostname<input name="hostname" placeholder="studio.localhost" required maxlength="253" autocapitalize="none"></label>
+    <label>Website name<input name="title" required maxlength="120"></label>
+    <label for="application">Application</label><select id="application" name="cms"><option value="empty">Empty website</option><option value="wordpress">WordPress</option><option value="joomla">Joomla</option></select>
+    <fieldset id="cms-fields" hidden><legend>CMS administrator</legend>
+      <label>Username<input name="username" autocomplete="off" maxlength="60"></label>
+      <label>Email<input name="email" type="email" autocomplete="off"></label>
+      <label>Password<input name="password" type="password" minlength="16" autocomplete="new-password"></label>
+    </fieldset>
+    <div class="form-actions"><button type="button" class="close">Cancel</button><button type="submit" class="primary">Create website</button></div>
+  </form>
+</dialog>
+<dialog id="settings-dialog"><form id="settings-form">
+  <div class="dialog-heading"><h2>PHP &amp; backups</h2><button type="button" class="icon close" aria-label="Close" title="Close">{{ icon('x') }}</button></div>
+  <p id="settings-host"></p><input name="site" type="hidden">
+  <label>Memory limit (MB)<input name="memory" type="number" min="64" max="1024" required></label>
+  <label>Upload limit (MB)<input name="upload" type="number" min="2" max="128" required></label>
+  <label>Execution timeout (seconds)<input name="timeout" type="number" min="10" max="300" required></label>
+  <label class="check"><input name="enabled" type="checkbox"> Daily backup</label>
+  <label>Retained recovery points<input name="retention" type="number" min="1" max="30" required></label>
+  <div class="form-actions"><button type="button" class="close">Cancel</button><button type="submit" class="primary">Save settings</button></div>
+</form></dialog>
+<dialog id="restore-dialog"><form id="restore-form">
+  <div class="dialog-heading"><h2>Restore website</h2><button type="button" class="icon close" aria-label="Close" title="Close">{{ icon('x') }}</button></div>
+  <p id="restore-target"></p><input name="site" type="hidden"><input name="backup" type="hidden">
+  <label>Confirm target hostname<input name="confirm" required autocomplete="off"></label>
+  <div class="form-actions"><button type="button" class="close">Cancel</button><button class="danger" type="submit">Back up &amp; restore</button></div>
+</form></dialog>
+<script src="/static/app.js" defer></script>
+{% endblock %}

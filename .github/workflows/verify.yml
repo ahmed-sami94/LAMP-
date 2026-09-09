@@ -1,0 +1,107 @@
+name: Verify LAMP+
+on:
+  push:
+    branches: [main, 'release/**']
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      publish_candidate:
+        type: boolean
+        default: false
+    secrets:
+      DOCKERHUB_TOKEN:
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Install test dependencies
+        run: python3 -m pip install flask requests
+      - name: Unit and security tests
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Validate distributed Compose examples
+        run: python3 tests/compose.py
+      - name: Build pinned image
+        run: |
+          BASE=$(python3 -c 'import json; print(json.load(open("dependencies.lock.json"))["ubuntu"])')
+          docker build --build-arg UBUNTU_IMAGE="$BASE" --build-arg TARGETARCH=${{ matrix.arch }} -t lampplus:test .
+      - name: Runtime acceptance
+        timeout-minutes: 15
+        run: python3 -u tests/runtime.py
+      - name: Browser acceptance and real screenshots
+        run: |
+          npm install --no-save --package-lock=false playwright@1.58.2
+          npx playwright install --with-deps chromium
+          node tests/browser.mjs
+      - name: Verified HTTPS and trusted-proxy acceptance
+        run: python3 tests/https.py
+      - name: Image security scan
+        if: always()
+        uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297
+        with:
+          image-ref: lampplus:test
+          format: json
+          output: artifacts/trivy.json
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+      - name: SBOM
+        if: always()
+        uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297
+        with:
+          image-ref: lampplus:test
+          format: spdx-json
+          output: artifacts/sbom.spdx.json
+          exit-code: '0'
+      - name: Source and dependency security scan
+        uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret
+          skip-dirs: artifacts,node_modules,.cache
+          format: json
+          output: artifacts/source-scan.json
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+      - name: Publish tested architecture candidate
+        if: success() && inputs.publish_candidate
+        env:
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          test -n "$DOCKERHUB_TOKEN"
+          printf '%s' "$DOCKERHUB_TOKEN" | docker login -u ahmedsamigmail --password-stdin
+          TAG="ahmedsamigmail/lampplus:2.0.0-rc.1-$ARCH"
+          docker tag lampplus:test "$TAG"
+          docker push "$TAG"
+          docker inspect --format='{{index .RepoDigests 0}}' "$TAG" > "artifacts/digest-$ARCH.txt"
+          docker logout
+      - name: Remove private test credentials
+        if: always()
+        run: rm -f artifacts/browser-secret artifacts/https/admin-password
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: verification-${{ matrix.arch }}
+          path: artifacts/
+      - name: Cleanup disposable test resources
+        if: always()
+        run: |
+          docker rm -f lampplus-test || true
+          docker volume rm lampplus-test-sites lampplus-test-db lampplus-test-state lampplus-test-backups || true

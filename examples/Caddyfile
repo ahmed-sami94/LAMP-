@@ -1,0 +1,8 @@
+{
+    email {$ACME_EMAIL}
+}
+
+{$LAMP_ADMIN_HOST}, {$SITE_HOST} {
+    encode zstd gzip
+    reverse_proxy app:80
+}

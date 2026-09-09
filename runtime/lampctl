@@ -1,0 +1,28 @@
+#!/usr/bin/python3
+"""Owner-only CLI. Website commands always drop root privileges."""
+import argparse
+import json
+import os
+import sys
+sys.path.insert(0, "/opt/lampplus")
+from common import rpc, STATE
+from operations import get_site, as_site
+
+parser = argparse.ArgumentParser(description="LAMP+ owner utilities")
+parser.add_argument("command", choices=["status", "credentials", "composer", "wp"])
+parser.add_argument("site", nargs="?")
+parser.add_argument("arguments", nargs=argparse.REMAINDER)
+args = parser.parse_args()
+if os.geteuid() != 0:
+    parser.error("Run via docker compose exec as the container owner.")
+if args.command == "status":
+    print(json.dumps(rpc("overview"), indent=2))
+else:
+    site = get_site(args.site)
+    if args.command == "credentials":
+        if not sys.stdout.isatty():
+            parser.error("Credentials require an interactive terminal to avoid logs.")
+        print((STATE / (site["id"] + ".json")).read_text())
+    else:
+        output = as_site(site, ["/usr/local/bin/" + args.command, *args.arguments], cwd="/srv/sites/" + site["id"] + "/public")
+        sys.stdout.buffer.write(output)

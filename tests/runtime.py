@@ -1,0 +1,184 @@
+"""Live container tests. Secrets are generated in memory and never printed."""
+import json
+import os
+from pathlib import Path
+import re
+import secrets
+import subprocess
+import time
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+IMAGE = os.environ.get("TEST_IMAGE", "lampplus:test")
+NAME = "lampplus-test"
+PASSWORD = secrets.token_urlsafe(30)
+BASE = "http://localhost:8080"
+
+
+class BoundedSession(requests.Session):
+    def __init__(self):
+        super().__init__()
+        # Apache may close an idle keep-alive connection during a graceful reload.
+        self.mount("http://", HTTPAdapter(max_retries=Retry(total=3, backoff_factor=0.3, allowed_methods={"GET", "HEAD"})))
+
+    def request(self, *args, **kwargs):
+        kwargs.setdefault("timeout", 20)
+        return super().request(*args, **kwargs)
+
+
+def docker(*args, check=True):
+    result = subprocess.run(["docker", *args], capture_output=True, text=True, check=check, timeout=180)
+    return result.stdout + (result.stderr if args[0] == "logs" else "")
+
+
+def ready():
+    for _ in range(150):
+        state = json.loads(docker("inspect", NAME))[0]
+        if state["State"].get("Health", {}).get("Status") == "healthy":
+            return
+        if not state["State"]["Running"]:
+            raise AssertionError("Container stopped before readiness")
+        if _ > 15:
+            services = docker("exec", NAME, "supervisorctl", "status", check=False)
+            if "FATAL" in services:
+                raise AssertionError("Service failed startup: " + services)
+        time.sleep(2)
+    raise AssertionError("Health check did not pass in five minutes")
+
+
+def login():
+    session = BoundedSession()
+    page = session.get(BASE + "/login")
+    assert page.status_code == 200
+    token = re.search(r'name="csrf" value="([^"]+)"', page.text)[1]
+    response = session.post(BASE + "/login", data={"csrf": token, "username": "admin", "password": PASSWORD})
+    assert response.status_code == 200 and "New website" in response.text
+    csrf = re.search(r'name="csrf-token" content="([^"]+)"', response.text)[1]
+    return session, csrf
+
+
+def start_container(with_secret=True):
+    environment = dict(os.environ, LAMP_ADMIN_PASSWORD=PASSWORD)
+    command = ["docker", "run", "-d", "--name", NAME, "-p", "127.0.0.1:8080:80", "-e", "LAMP_PUBLIC_PORT=8080",
+               "-v", "lampplus-test-sites:/srv/sites", "-v", "lampplus-test-db:/var/lib/mysql",
+               "-v", "lampplus-test-state:/var/lib/lampplus", "-v", "lampplus-test-backups:/var/backups/lampplus"]
+    if with_secret:
+        command += ["-e", "LAMP_ADMIN_PASSWORD"]
+    subprocess.run([*command, IMAGE], env=environment, check=True, capture_output=True, timeout=180)
+    ready()
+
+
+def perform(session, csrf, action, data, expect="complete"):
+    print("Testing operation:", action, data.get("hostname", data.get("site", "")), flush=True)
+    response = session.post(BASE + "/api/actions/" + action, json=data, headers={"X-CSRF-Token": csrf})
+    assert response.status_code == 202, response.status_code
+    key = response.json()["job"]
+    for _ in range(180):
+        info = session.get(BASE + "/api/overview").json()
+        job = next(x for x in info["jobs"] if x["id"] == key)
+        if job["status"] in ("complete", "failed"):
+            assert job["status"] == expect, job["message"]
+            return job.get("result", {})
+        time.sleep(2)
+    raise AssertionError("Provisioning timed out")
+
+
+def main():
+    result = subprocess.run(["docker", "run", "--rm", IMAGE], capture_output=True, timeout=30)
+    assert result.returncode != 0, "Missing secrets must fail"
+    start_container()
+    assert requests.get(BASE + "/api/overview", timeout=20).status_code == 401
+    assert requests.get(BASE + "/", headers={"Host": "unknown.localhost"}, timeout=20).status_code == 403
+    session, csrf = login()
+    assert session.post(BASE + "/api/actions/site.create", json={}).status_code == 403
+    first = perform(session, csrf, "site.create", {"hostname": "studio.localhost", "title": "Studio", "cms": "empty"})["site"]
+    second = perform(session, csrf, "site.create", {"hostname": "journal.localhost", "title": "Journal", "cms": "empty"})["site"]
+    for host in ("studio.localhost", "journal.localhost"):
+        response = requests.get(BASE, headers={"Host": host}, timeout=20)
+        assert response.status_code == 200 and "Website ready" in response.text, (host, response.status_code, response.text[:500])
+    perform(session, csrf, "site.create", {"hostname": "studio.localhost"}, expect="failed")
+    perform(session, csrf, "site.create", {"hostname": "../bad"}, expect="failed")
+    perform(session, csrf, "php.update", {"site": first, "memory": 320, "upload": 24, "timeout": 60})
+    probe = f"/srv/sites/{first}/public/acceptance.php"
+    docker("exec", NAME, "python3", "-c", f"from pathlib import Path; p=Path({probe!r}); p.write_text(\"<?php echo json_encode([ini_get('memory_limit'),ini_get('upload_max_filesize'),getenv('LAMP_ADMIN_PASSWORD')]);\"); p.chmod(0o644)")
+    try:
+        settings = session.get(BASE + "/acceptance.php", headers={"Host": "studio.localhost:8080"})
+        assert settings.json() == ["320M", "24M", False], "PHP pool limits or environment isolation differ"
+    finally:
+        docker("exec", NAME, "rm", "-f", probe)
+    docker("cp", "tests/container_security.py", NAME + ":/run/container_security.py")
+    security = subprocess.run(["docker", "exec", NAME, "python3", "/run/container_security.py"], capture_output=True, text=True, timeout=180)
+    assert security.returncode == 0, security.stderr
+    print(security.stdout, flush=True)
+    snapshot = perform(session, csrf, "backup.create", {"site": first})["backup"]
+    assert snapshot
+    docker("exec", NAME, "python3", "-c", f"from pathlib import Path; Path('/srv/sites/{first}/public/index.html').write_text('Changed')")
+    docker("exec", NAME, "mariadb", "--protocol=socket", "-e", f"UPDATE `{first}`.acceptance SET value=99")
+    perform(session, csrf, "backup.restore", {"site": first, "backup": snapshot, "confirm": "wrong.localhost"}, expect="failed")
+    perform(session, csrf, "backup.restore", {"site": first, "backup": snapshot, "confirm": "studio.localhost"})
+    restored = requests.get(BASE, headers={"Host": "studio.localhost"}, timeout=20)
+    assert restored.status_code == 200 and "Website ready" in restored.text, (restored.status_code, restored.text[:500])
+    assert docker("exec", NAME, "mariadb", "--protocol=socket", "-BN", "-e", f"SELECT value FROM `{first}`.acceptance").strip() == "42"
+    perform(session, csrf, "backup.schedule", {"site": first, "enabled": True, "retention": 2})
+    for _ in range(2):
+        perform(session, csrf, "backup.create", {"site": first, "scheduled": True})
+    recovery_points = session.get(BASE + "/api/overview").json()["backups"]
+    assert len(recovery_points) == 2 and all(point["id"] != snapshot for point in recovery_points)
+    docker("restart", NAME)
+    ready()
+    session, csrf = login()
+    info = session.get(BASE + "/api/overview").json()
+    assert len(info["sites"]) == 2
+    assert next(s for s in info["sites"] if s["id"] == first)["php"]["memory"] == 320
+    assert next(s for s in info["sites"] if s["id"] == first)["daily_backup"] is True
+    assert len(info["backups"]) == 2
+    for tool in ("/phpmyadmin/", "/filebrowser/"):
+        response = session.get(BASE + tool)
+        assert response.status_code == 200, (tool, response.status_code)
+        assert requests.get(BASE + tool, allow_redirects=False, timeout=20).status_code == 302
+    for host in ("studio.localhost", "journal.localhost"):
+        assert requests.get(BASE + "/.env", headers={"Host": host}, timeout=20).status_code == 403
+    # Install pinned CMS packages, with distinct administrator credentials.
+    for cms in ("wordpress", "joomla"):
+        perform(session, csrf, "site.create", {"hostname": cms + ".localhost", "title": {"wordpress": "WordPress", "joomla": "Joomla"}[cms], "cms": cms,
+            "username": "site-owner", "email": "owner@example.test", "password": secrets.token_urlsafe(30)})
+    # Recreate from the same four volumes without providing the initial secret.
+    docker("stop", "--time", "30", NAME)
+    assert json.loads(docker("inspect", NAME))[0]["State"]["ExitCode"] == 0, "Shutdown was not graceful"
+    docker("rm", NAME)
+    start_container(with_secret=False)
+    session, csrf = login()
+    assert len(session.get(BASE + "/api/overview").json()["sites"]) == 4
+    assert docker("exec", NAME, "mariadb", "--protocol=socket", "-BN", "-e", f"SELECT value FROM `{first}`.acceptance").strip() == "42"
+    for cms in ("wordpress", "joomla"):
+        page = session.get(BASE + "/", headers={"Host": cms + ".localhost:8080"}, allow_redirects=False)
+        assert page.status_code == 200, (cms, page.status_code, page.headers.get("Location"))
+    for service in ("php", "filebrowser", "mariadb"):
+        docker("exec", NAME, "supervisorctl", "stop", service)
+        check = subprocess.run(["docker", "exec", NAME, "python3", "/opt/lampplus/health.py"], capture_output=True, timeout=20)
+        assert check.returncode != 0, service + " failure was not detected"
+        docker("exec", NAME, "supervisorctl", "start", service)
+    ready()
+    docker("exec", NAME, "python3", "-c", "import pathlib; print(pathlib.Path('/opt/lampplus/packages.txt').read_text())")
+    Path("artifacts").mkdir(exist_ok=True)
+    docker("cp", NAME + ":/opt/lampplus/packages.txt", "artifacts/packages.txt")
+    # Screenshots can authenticate with a private temporary file, removed by CI.
+    credentials = json.loads(docker("exec", NAME, "cat", f"/var/lib/lampplus/{first}.json"))
+    Path("artifacts/browser-secret").write_text(json.dumps({"password": PASSWORD, "database": credentials}))
+    os.chmod("artifacts/browser-secret", 0o600)
+    print("Live startup, routing, persistence, security and CMS checks passed")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception:
+        Path("artifacts").mkdir(exist_ok=True)
+        # Service diagnostics only. Avoid environment inspection or credential files.
+        Path("artifacts/container.log").write_text(docker("logs", NAME, check=False))
+        diagnostic = docker("exec", NAME, "cat", "/var/lib/lampplus/last-install-error.json", check=False)
+        if diagnostic:
+            Path("artifacts/installer-error.json").write_text(diagnostic)
+            print("Redacted installer diagnostic:", diagnostic, flush=True)
+        raise
