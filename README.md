@@ -1,5 +1,7 @@
 # LAMP+
 
+<img src="assets/logo.png" alt="LAMP+ logo" width="112">
+
 ![LAMP+ - Your PHP workspace. In one container.](assets/banner.png)
 
 An all-in-one Ubuntu container for PHP websites, with Apache, PHP-FPM, MariaDB,
@@ -10,6 +12,12 @@ See [release readiness](docs/STATUS.md). No stable v2 image is claimed here.
 
 Documentation: [HTTPS hosting](docs/HOSTING.md) | [Release procedure](docs/RELEASE.md)
 | [Changelog](CHANGELOG.md) | [Contributing](CONTRIBUTING.md)
+
+Project: [GitHub](https://github.com/ahmed-sami94/LAMP-) |
+[Docker Hub](https://hub.docker.com/r/ahmedsamigmail/lampplus) |
+[Project overview and page gallery](docs/PROJECT.md)
+
+[Docker Hub overview source](docs/DOCKER_HUB.md)
 
 ## What changes in v2
 
@@ -73,7 +81,8 @@ entries when your browser/OS does not resolve `*.localhost` to loopback.
 | `UBUNTU_IMAGE` | Exact base reference from the dependency lock |
 
 The provided development Compose uses an environment secret. A hosting example
-with mounted secrets and Caddy is being verified before release.
+with mounted secrets and Caddy is included. Both Compose examples and the Caddy
+HTTPS boundary are covered by native Linux CI; image publication is still pending.
 
 | Volume | Container path | Contents |
 | --- | --- | --- |
@@ -156,3 +165,10 @@ installed Ubuntu package versions are recorded at `/opt/lampplus/packages.txt`.
 Report vulnerabilities using [SECURITY.md](SECURITY.md). GPLv3 applies to LAMP+;
 bundled third-party components retain their own licenses. See
 [third-party notices](THIRD_PARTY_NOTICES.md) and [LICENSE](LICENSE).
+
+## Author
+
+Copyright (c) 2026 **Ahmed Sami**. Developed and maintained by Ahmed Sami.
+
+[i@ahmed-sami.me](mailto:i@ahmed-sami.me) |
+[ahmed-sami.me](https://ahmed-sami.me/) | [Copyright notice](COPYRIGHT.md)

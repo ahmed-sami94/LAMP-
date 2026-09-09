@@ -14,8 +14,8 @@ Do not use it for public hosting until the acceptance matrix and security scans 
 
 ## Verified baseline
 
-[Run 34405690365](https://github.com/ahmed-sami94/LAMP-/actions/runs/34405690365)
-passed on native amd64 and arm64 at commit `eb2c8e3`: build, 16 unit/security
+[Run 34408734668](https://github.com/ahmed-sami94/LAMP-/actions/runs/34408734668)
+passed on native amd64 and arm64 at commit `fbe9270`: build, 19 unit/security
 checks, two-site routing, database separation, file and SQL restoration,
 WordPress/Joomla setup, container recreation with persistent state, graceful
 shutdown, service failures, responsive screenshots, Caddy TLS verification,
@@ -24,16 +24,14 @@ scanning and high/critical image scanning. Live checks also cover persistent
 login throttling, actual PHP limits/environment isolation, scheduled retention,
 installer failure cleanup and non-destructive retry.
 
-Subsequent changes extend HTTPS scheme propagation and validate the distributed
-Compose files. The baseline is evidence for that commit, not a waiver for later changes.
+This run also verified HTTPS scheme propagation to website PHP, rejected forged
+scheme headers, and validated both distributed Compose examples. The baseline
+is evidence for that commit, not a waiver for later changes.
 
 ## Release blockers
 
-- Both architecture builds and all runtime tests must pass.
-- PHP 8.5 compatibility, especially phpMyAdmin, must be demonstrated.
-- Security scans, privilege separation, failure recovery, HTTPS proxy and browser
-  acceptance require completed evidence.
-- Updated screenshots and final documentation must match the accepted commit.
+- Subsequent changes must retain passing architecture, runtime, security and
+  browser checks; screenshots must identify their capture commit.
 - Docker Hub ownership is confirmed and its overview is published. Image-push
   authorization still needs secure configuration; web sign-in alone is insufficient.
 - Release-candidate acceptance precedes stable GitHub/Docker publication.
