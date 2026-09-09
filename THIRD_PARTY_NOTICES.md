@@ -19,7 +19,7 @@ their licenses and attribution are not replaced by the LAMP+ license.
 | Requests | https://requests.readthedocs.io/ | Apache-2.0 |
 | Supervisor | https://supervisord.org/ | BSD-derived / upstream notices |
 | Tini | https://github.com/krallin/tini | MIT |
-| Lucide icons 1.43.0 | https://lucide.dev/ | ISC; notice in `panel/static/icons/LICENSE` |
+| Lucide icons 1.43.0 | https://lucide.dev/ | ISC / MIT-derived icons; notice in `panel/static/icons/LICENSE` |
 
 CMS archives and phpMyAdmin distributions include their license files. The release
 SBOM and package manifest identify bundled dependency versions. Source download

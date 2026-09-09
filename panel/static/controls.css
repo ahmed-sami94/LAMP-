@@ -1,9 +1,91 @@
-.control-icon { width: 17px; height: 17px; flex: 0 0 17px; vertical-align: middle; }
-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
-nav button { justify-content: flex-start; gap: 10px; }
-nav .control-icon, .primary .control-icon, .danger .control-icon { filter: brightness(0) invert(1); }
-.row-actions .icon { width: 34px; height: 34px; border: 1px solid #c9d1d5; padding: 0; }
-td small a { color: #536b73; }
-label[for="application"] { margin-bottom: 7px; }
-#application { margin-bottom: 17px; }
-@media (max-width: 640px) { nav .control-icon { width: 15px; height: 15px; flex-basis: 15px; } }
+.control-icon {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  vertical-align: middle;
+}
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+nav button {
+  justify-content: flex-start;
+  gap: 10px;
+}
+nav .control-icon,
+.primary .control-icon,
+.danger .control-icon {
+  filter: brightness(0) invert(1);
+}
+.row-actions .icon {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #c9d1d5;
+  padding: 0;
+}
+td small a {
+  color: #536b73;
+}
+label[for="application"] {
+  margin-bottom: 7px;
+}
+#application {
+  margin-bottom: 17px;
+}
+@media (max-width: 640px) {
+  .layout nav {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow: visible;
+  }
+  .layout nav button,
+  .layout nav button[aria-current] {
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    padding: 7px 2px;
+  }
+  .layout nav a {
+    grid-column: span 2;
+    justify-content: center;
+    gap: 8px;
+    padding: 6px;
+  }
+  nav .control-icon {
+    width: 15px;
+    height: 15px;
+    flex-basis: 15px;
+  }
+  #site-list table {
+    table-layout: fixed;
+  }
+  #site-list th:nth-child(2),
+  #site-list td:nth-child(2),
+  #site-list th:nth-child(4),
+  #site-list td:nth-child(4) {
+    display: none;
+  }
+  #site-list th:nth-child(3) {
+    width: 67px;
+  }
+  #site-list th:last-child {
+    width: 83px;
+  }
+  #site-list th,
+  #site-list td {
+    padding: 16px 6px;
+  }
+  #site-list td:first-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .row-actions {
+    gap: 4px;
+  }
+  .row-actions .icon {
+    width: 32px;
+    height: 34px;
+  }
+}

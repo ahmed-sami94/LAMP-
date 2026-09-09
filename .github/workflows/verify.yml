@@ -14,6 +14,9 @@ on:
         required: false
 permissions:
   contents: read
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
 jobs:
   verify:
     strategy:
@@ -89,7 +92,7 @@ jobs:
           docker logout
       - name: Remove private test credentials
         if: always()
-        run: rm -f artifacts/browser-secret
+        run: rm -f artifacts/browser-secret artifacts/https/admin-password
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
