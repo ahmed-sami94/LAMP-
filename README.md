@@ -24,6 +24,14 @@ This is a **single trusted owner's workspace**, not a security isolation platfor
 for unrelated tenants. Uploaded PHP runs inside the same container. Only install
 code you trust. Administration and website content use separate hostnames.
 
+## Dashboard
+
+![Running LAMP+ dashboard with four synthetic websites](docs/screenshots/dashboard-desktop.png)
+
+[Mobile screenshot](docs/screenshots/dashboard-mobile.png) |
+[Tablet screenshot](docs/screenshots/dashboard-tablet.png) |
+[Capture provenance](docs/screenshots/README.md)
+
 ## Local development
 
 Prerequisites: Docker Engine with Compose v2, Linux containers, at least 2 GB RAM,

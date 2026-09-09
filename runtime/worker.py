@@ -14,7 +14,7 @@ import time
 from werkzeug.security import check_password_hash
 
 from common import STATE, SOCKET, atomic_json
-from operations import ACTIONS, backup, backup_list, sites, sql
+from operations import ACTIONS, backup_list, sites, sql
 
 LOCK = threading.RLock()
 POOL = ThreadPoolExecutor(max_workers=1)

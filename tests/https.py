@@ -1,7 +1,7 @@
 """Test the Caddy proxy boundary with a private CA, without disabling TLS checks."""
 import json
-import os
 from pathlib import Path
+import re
 import secrets
 import subprocess
 import time
@@ -14,7 +14,7 @@ secret_file = WORK / "admin-password"
 secret_file.write_text(secrets.token_urlsafe(32))
 secret_file.chmod(0o600)
 configuration = WORK / "Caddyfile"
-configuration.write_text("localhost {\n tls internal\n reverse_proxy lampplus-https:80\n}\n")
+configuration.write_text("localhost, site.localhost {\n tls internal\n reverse_proxy lampplus-https:80\n}\n")
 
 
 def docker(*args, check=True):
@@ -50,6 +50,35 @@ try:
     direct = docker("exec", "lampplus-https", "curl", "-s", "-o", "/dev/null", "-w", "%{http_code}",
                     "-H", "Host: localhost", "-H", "X-Forwarded-Proto: https", "-H", "X-Lamp-Client: 172.30.50.2", "http://127.0.0.1/login")
     assert direct.stdout == "400", "Untrusted direct access must not become trusted through forged headers"
+    session = requests.Session()
+    session.verify = str(certificate)
+    page = session.get("https://localhost:8443/login", timeout=10)
+    csrf = re.search(r'name="csrf" value="([^"]+)"', page.text)[1]
+    page = session.post("https://localhost:8443/login", data={"csrf": csrf, "username": "admin", "password": secret_file.read_text()}, timeout=10)
+    assert page.status_code == 200 and "New website" in page.text
+    csrf = re.search(r'name="csrf-token" content="([^"]+)"', page.text)[1]
+    tool = session.get("https://localhost:8443/phpmyadmin/", timeout=20)
+    assert tool.status_code == 200 and 'name="pma_username"' in tool.text
+    job = session.post("https://localhost:8443/api/actions/site.create", json={"hostname": "site.localhost", "cms": "empty"},
+                       headers={"X-CSRF-Token": csrf}, timeout=20).json()["job"]
+    for _ in range(60):
+        jobs = session.get("https://localhost:8443/api/overview", timeout=10).json()["jobs"]
+        operation = next(entry for entry in jobs if entry["id"] == job)
+        if operation["status"] == "failed":
+            raise AssertionError(operation["message"])
+        if operation["status"] == "complete":
+            break
+        time.sleep(1)
+    else:
+        raise AssertionError("HTTPS site provisioning timed out")
+    site = operation["result"]["site"]
+    probe = f"/srv/sites/{site}/public/scheme.php"
+    docker("exec", "lampplus-https", "python3", "-c", f"from pathlib import Path;p=Path({probe!r});p.write_text(\"<?php echo json_encode($_SERVER['HTTPS'] ?? null);\");p.chmod(0o644)")
+    secure = subprocess.run(["curl", "--noproxy", "*", "--cacert", str(certificate), "--resolve", "site.localhost:8443:127.0.0.1",
+                             "--silent", "--show-error", "--fail", "https://site.localhost:8443/scheme.php"], capture_output=True, text=True, timeout=20, check=True)
+    assert json.loads(secure.stdout) == "on", "PHP did not receive the trusted HTTPS scheme"
+    forged = docker("exec", "lampplus-https", "curl", "--silent", "--fail", "-H", "Host: site.localhost", "-H", "X-Forwarded-Proto: https", "http://127.0.0.1/scheme.php")
+    assert json.loads(forged.stdout) is None, "Untrusted website headers changed PHP's HTTPS state"
     print("Verified HTTPS, redirect, secure cookies and proxy-spoofing checks passed")
 finally:
     secret_file.unlink(missing_ok=True)

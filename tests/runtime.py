@@ -108,7 +108,9 @@ def main():
     finally:
         docker("exec", NAME, "rm", "-f", probe)
     docker("cp", "tests/container_security.py", NAME + ":/run/container_security.py")
-    docker("exec", NAME, "python3", "/run/container_security.py")
+    security = subprocess.run(["docker", "exec", NAME, "python3", "/run/container_security.py"], capture_output=True, text=True, timeout=180)
+    assert security.returncode == 0, security.stderr
+    print(security.stdout, flush=True)
     snapshot = perform(session, csrf, "backup.create", {"site": first})["backup"]
     assert snapshot
     docker("exec", NAME, "python3", "-c", f"from pathlib import Path; Path('/srv/sites/{first}/public/index.html').write_text('Changed')")
@@ -139,7 +141,7 @@ def main():
         assert requests.get(BASE + "/.env", headers={"Host": host}, timeout=20).status_code == 403
     # Install pinned CMS packages, with distinct administrator credentials.
     for cms in ("wordpress", "joomla"):
-        perform(session, csrf, "site.create", {"hostname": cms + ".localhost", "title": cms.title(), "cms": cms,
+        perform(session, csrf, "site.create", {"hostname": cms + ".localhost", "title": {"wordpress": "WordPress", "joomla": "Joomla"}[cms], "cms": cms,
             "username": "site-owner", "email": "owner@example.test", "password": secrets.token_urlsafe(30)})
     # Recreate from the same four volumes without providing the initial secret.
     docker("stop", "--time", "30", NAME)

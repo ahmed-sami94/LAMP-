@@ -22,8 +22,6 @@ def artifact(url, digest=None):
         return {"url": url, "sha256": value}
     content = read(url)
     actual = hashlib.sha256(content).hexdigest()
-    if digest and actual != digest.removeprefix("sha256:"):
-        raise RuntimeError("Upstream checksum mismatch")
     return {"url": url, "sha256": actual}
 
 token = api("https://auth.docker.io/token?service=registry.docker.io&scope=repository:library/ubuntu:pull")["token"]

@@ -14,15 +14,18 @@ Do not use it for public hosting until the acceptance matrix and security scans 
 
 ## Verified baseline
 
-[Run 34403917190](https://github.com/ahmed-sami94/LAMP-/actions/runs/34403917190)
-passed on native amd64 and arm64 at commit `c281ef9`: build, 15 unit/security
+[Run 34405690365](https://github.com/ahmed-sami94/LAMP-/actions/runs/34405690365)
+passed on native amd64 and arm64 at commit `eb2c8e3`: build, 16 unit/security
 checks, two-site routing, database separation, file and SQL restoration,
 WordPress/Joomla setup, container recreation with persistent state, graceful
 shutdown, service failures, responsive screenshots, Caddy TLS verification,
-proxy-spoofing rejection, source scanning and high/critical image scanning.
+proxy-spoofing rejection, authenticated phpMyAdmin/File Browser sessions, source
+scanning and high/critical image scanning. Live checks also cover persistent
+login throttling, actual PHP limits/environment isolation, scheduled retention,
+installer failure cleanup and non-destructive retry.
 
-Subsequent changes add explicit CMS development ports and deeper authenticated
-tool tests. The baseline is evidence for that commit, not a waiver for later changes.
+Subsequent changes extend HTTPS scheme propagation and validate the distributed
+Compose files. The baseline is evidence for that commit, not a waiver for later changes.
 
 ## Release blockers
 

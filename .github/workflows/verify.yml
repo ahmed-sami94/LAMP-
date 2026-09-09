@@ -35,6 +35,8 @@ jobs:
         run: python3 -m pip install flask requests
       - name: Unit and security tests
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Validate distributed Compose examples
+        run: python3 tests/compose.py
       - name: Build pinned image
         run: |
           BASE=$(python3 -c 'import json; print(json.load(open("dependencies.lock.json"))["ubuntu"])')

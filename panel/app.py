@@ -7,7 +7,6 @@ from http.cookies import SimpleCookie
 import ipaddress
 import json
 import os
-from pathlib import Path
 import secrets
 import time
 from urllib.parse import urlsplit
