@@ -13,11 +13,17 @@ from bootstrap import user
 from configuration import site_config
 
 
+class CommandFailed(RuntimeError):
+    def __init__(self, name, code, stderr):
+        super().__init__(f"{name} failed (exit {code}).")
+        self.stderr = stderr
+
+
 def run(arguments, **kwargs):
     result = subprocess.run(arguments, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=600, **kwargs)
     if result.returncode:
         # CLI output may contain secrets; do not forward it to logs or clients.
-        raise RuntimeError(f"{Path(arguments[0]).name} failed (exit {result.returncode}).")
+        raise CommandFailed(Path(arguments[0]).name, result.returncode, result.stderr)
     return result.stdout
 
 
@@ -56,9 +62,17 @@ def as_site(site, arguments, **kwargs):
 
 
 def php_command(site, script, arguments):
-    return as_site(site, ["php", "/opt/lampplus/invoke-php.php"],
-                   cwd=SITES / site["id"] / "public",
-                   input=json.dumps({"script": script, "arguments": arguments}).encode())
+    try:
+        return as_site(site, ["php", "/opt/lampplus/invoke-php.php"],
+                       cwd=SITES / site["id"] / "public",
+                       input=json.dumps({"script": script, "arguments": arguments}).encode())
+    except CommandFailed as error:
+        diagnostic = error.stderr.decode(errors="replace")
+        for argument in arguments:
+            if "=" in argument and any(word in argument.split("=", 1)[0] for word in ("pass", "email", "user")):
+                diagnostic = diagnostic.replace(argument.split("=", 1)[1], "[redacted]")
+        atomic_json(STATE / "last-install-error.json", {"site": site["id"], "diagnostic": diagnostic[-8000:]})
+        raise
 
 
 def create_site(data, progress):
@@ -133,7 +147,7 @@ def create_site(data, progress):
         site["status"] = "ready"
         save_site(site)
         return {"site": key}
-    except Exception:
+    except Exception as error:
         # Leave interrupted files available for inspection, but never publish them.
         for path in (Path(f"/etc/apache2/sites-enabled/{key}.conf"), Path(f"/etc/php/8.5/fpm/pool.d/{key}.conf")):
             path.unlink(missing_ok=True)
@@ -151,7 +165,8 @@ def create_site(data, progress):
             reload_services()
         except Exception:
             pass
-        raise RuntimeError("Setup failed. Preserved for inspection: " + ", ".join(remaining)) from None
+        detail = str(error) if isinstance(error, (ValueError, RuntimeError)) else type(error).__name__
+        raise RuntimeError("Setup failed: " + detail + " Preserved for inspection: " + ", ".join(remaining)) from None
 
 
 def update_php(data, progress):

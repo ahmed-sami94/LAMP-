@@ -37,6 +37,9 @@ def main():
     os.chmod(SITES, 0o755)
     account_file = STATE / "account.json"
     if not account_file.exists():
+        password_file = os.environ.get("LAMP_ADMIN_PASSWORD_FILE")
+        if password_file and Path(password_file).stat().st_mode & 0o077:
+            raise ValueError("Administrator secret file must not be readable by group or others (use mode 0600).")
         password = secret("LAMP_ADMIN_PASSWORD")
         if not password or len(password) < 16:
             raise ValueError("First boot requires a unique LAMP_ADMIN_PASSWORD or _FILE secret of at least 16 characters.")
@@ -54,7 +57,7 @@ def main():
     fb_config = STATE / "filebrowser.yaml"
     if not fb_config.exists():
         import yaml
-        fb = {"server": {"address": "127.0.0.1", "port": 8081, "baseURL": "/filebrowser", "database": str(fbdir / "database.db"), "cacheDir": str(fbdir / "cache"), "disableUpdateCheck": True, "disablePreviews": True, "sources": [{"path": str(SITES), "name": "Websites"}]},
+        fb = {"server": {"listen": "127.0.0.1", "port": 8081, "baseURL": "/filebrowser", "database": str(fbdir / "database.db"), "cacheDir": str(fbdir / "cache"), "disableUpdateCheck": True, "disablePreviews": True, "disableWebDAV": True, "sources": [{"path": str(SITES), "name": "Websites", "config": {"private": True, "defaultEnabled": True, "rules": [{"ignoreSymlinks": True}]}}]},
               "auth": {"adminUsername": "lamp-owner", "adminPassword": secrets.token_urlsafe(40), "key": secrets.token_hex(32), "methods": {"password": {"enabled": False, "signup": False}, "jwt": {"enabled": True, "header": "X-Lamp-Assertion", "secret": config["filebrowser_key"], "algorithm": "HS256", "userIdentifier": "sub"}}},
               "userDefaults": {"account": {"permissions": {"modify": True, "create": True, "delete": True, "download": True, "share": False, "api": False}}}}
         fb_config.write_text(yaml.safe_dump(fb))
