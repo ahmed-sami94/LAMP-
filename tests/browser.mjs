@@ -8,6 +8,16 @@ const credentials = JSON.parse(
 );
 const password = credentials.password;
 await mkdir("artifacts/screenshots", { recursive: true });
+async function capture(page, name) {
+  const visibleText = await page.locator("body").innerText();
+  for (const secret of [password, credentials.database.password]) {
+    assert.equal(visibleText.includes(secret), false, "No visible credentials");
+  }
+  await page.screenshot({
+    path: `artifacts/screenshots/${name}.png`,
+    fullPage: true,
+  });
+}
 try {
   for (const [name, width, height] of [
     ["desktop", 1366, 900],
@@ -18,6 +28,7 @@ try {
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto("http://localhost:8080/login");
+    if (name === "desktop") await capture(page, "login-desktop");
     await page.getByLabel("Username", { exact: true }).fill("admin");
     await page.getByLabel("Password", { exact: true }).fill(password);
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
@@ -45,13 +56,13 @@ try {
       false,
       "No visible password",
     );
-    await page.screenshot({
-      path: `artifacts/screenshots/dashboard-${name}.png`,
-      fullPage: true,
-    });
+    await capture(page, `dashboard-${name}`);
     for (const view of ["Services", "Backups", "Activity", "Websites"]) {
       await page.getByRole("button", { name: view, exact: true }).click();
       assert.equal(await page.locator("#heading").innerText(), view);
+      if (name === "desktop" && view !== "Websites") {
+        await capture(page, `${view.toLowerCase()}-desktop`);
+      }
     }
     await page
       .getByRole("button", { name: "New website", exact: true })
@@ -60,6 +71,7 @@ try {
       .getByLabel("Application", { exact: true })
       .selectOption("wordpress");
     assert.equal(await page.locator("#cms-fields").isVisible(), true);
+    if (name === "desktop") await capture(page, "website-setup-desktop");
     await page
       .locator("#site-dialog")
       .getByRole("button", { name: "Close", exact: true })
