@@ -8,7 +8,7 @@ import secrets
 import subprocess
 import sys
 from werkzeug.security import generate_password_hash
-from common import STATE, SITES, BACKUPS, atomic_json, hostname, secret
+from common import STATE, SITES, BACKUPS, atomic_json, hostname, identifier, secret
 from configuration import admin_config, site_config
 
 
@@ -54,7 +54,11 @@ def main():
     fbdir.mkdir(exist_ok=True)
     os.chown(fbdir, 1600, 1600)
     os.chmod(fbdir, 0o700)
-    fb_config = STATE / "filebrowser.yaml"
+    config_directory = STATE / "filebrowser-config"
+    config_directory.mkdir(exist_ok=True)
+    os.chown(config_directory, 0, 1600)
+    os.chmod(config_directory, 0o750)
+    fb_config = config_directory / "config.yaml"
     if not fb_config.exists():
         import yaml
         fb = {"server": {"listen": "127.0.0.1", "port": 8081, "baseURL": "/filebrowser", "database": str(fbdir / "database.db"), "cacheDir": str(fbdir / "cache"), "disableUpdateCheck": True, "disablePreviews": True, "disableWebDAV": True, "sources": [{"path": str(SITES), "name": "Websites", "config": {"private": True, "defaultEnabled": True, "rules": [{"ignoreSymlinks": True}]}}]},
@@ -87,10 +91,22 @@ $cfg['TempDir'] = '/var/lib/php/sessions';
     sites_file = STATE / "sites.json"
     if not sites_file.exists():
         atomic_json(sites_file, [])
-    for site in json.loads(sites_file.read_text()):
+    records = json.loads(sites_file.read_text())
+    # Rebuild from committed ready records; an interrupted wizard must stay unpublished.
+    for pattern in ("/etc/apache2/sites-enabled", "/etc/php/8.5/fpm/pool.d"):
+        for generated in Path(pattern).glob("s*.conf"):
+            try:
+                identifier(generated.stem)
+            except ValueError:
+                continue
+            generated.unlink()
+    for site in records:
+        if site["status"] == "creating":
+            site.update(status="failed", remaining=[str(SITES / site["id"]), "Inspect database/account " + site["id"]])
         user(site)
         if site["status"] == "ready":
             site_config(site)
+    atomic_json(sites_file, records)
 
 
 if __name__ == "__main__":

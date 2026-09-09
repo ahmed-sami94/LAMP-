@@ -78,7 +78,7 @@ def php_command(site, script, arguments):
 def create_site(data, progress):
     host = hostname(data.get("hostname"))
     config = json.loads((STATE / "panel.json").read_text())
-    if host == config["host"] or any(s["hostname"] == host for s in sites()):
+    if host == config["host"] or any(s["hostname"] == host and s["status"] != "failed" for s in sites()):
         raise ValueError("Hostname is already allocated; existing data was not changed.")
     cms = data.get("cms", "empty")
     if cms not in ("empty", "wordpress", "joomla"):
@@ -206,6 +206,11 @@ def backup(data, progress):
             if process.returncode:
                 raise RuntimeError("Database backup failed.")
         atomic_json(destination / "manifest.json", {"id": backup_id, "site": key, "hostname": site["hostname"], "created": int(time.time())})
+        if data.get("scheduled") is True and site["daily_backup"]:
+            # Prune on the serialized worker, never concurrently with a restore.
+            history = [b for b in backup_list() if b["site"] == key and b["id"] != backup_id]
+            for item in history[site["retention"] - 1:]:
+                shutil.rmtree(BACKUPS / item["id"])
         return {"backup": backup_id}
     except Exception:
         shutil.rmtree(destination)

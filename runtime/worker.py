@@ -153,10 +153,7 @@ def scheduler():
                 with LOCK:
                     if any(x["status"] in ("running", "queued") for x in JOBS.values()):
                         continue
-                    dispatch("backup.create", {"site": site["id"]})
-            for item in history[site["retention"]:]:
-                from common import BACKUPS
-                shutil.rmtree(BACKUPS / item["id"])
+                    dispatch("backup.create", {"site": site["id"], "scheduled": True})
 
 
 if __name__ == "__main__":

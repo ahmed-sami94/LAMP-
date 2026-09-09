@@ -21,7 +21,8 @@ def create_app(config=None):
     app = Flask(__name__)
     app.config.update(SECRET_KEY=config["key"], SESSION_COOKIE_NAME="lamp_session", SESSION_COOKIE_HTTPONLY=True,
                       SESSION_COOKIE_SAMESITE="Strict", SESSION_COOKIE_SECURE=config["mode"] == "hosting",
-                      PERMANENT_SESSION_LIFETIME=timedelta(hours=2), MAX_CONTENT_LENGTH=128 * 1024 * 1024)
+                      PERMANENT_SESSION_LIFETIME=timedelta(hours=2), MAX_CONTENT_LENGTH=128 * 1024 * 1024,
+                      MAX_FORM_MEMORY_SIZE=65536, MAX_FORM_PARTS=32)
 
     @app.before_request
     def protect():

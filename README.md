@@ -79,8 +79,9 @@ Never use `docker compose down -v` unless you intend to delete persistent data.
 Use **New website** for an empty PHP/HTML site, WordPress, or Joomla. CMS installs
 require unique administrator credentials and an email. Progress and failures
 appear in **Activity**. Failed files are retained and never activated. Inspect
-the reported path before retrying; use a different hostname while resolving a
-failed reserved entry. Nothing is installed over an occupied destination.
+the reported path before retrying. Retrying a failed hostname allocates a fresh
+directory and database, preserving the failed attempt. Nothing is installed over
+an occupied destination.
 
 Use **Settings** for PHP memory, uploads, execution time and daily backup retention.
 Only ready websites are eligible for backup and settings operations.
