@@ -366,6 +366,17 @@ td:last-child {
   font-size: 10px;
   margin-top: 48px;
 }
+.attribution {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.attribution a {
+  color: inherit;
+}
 .notice {
   padding: 13px 16px;
   background: #e5f3f5;

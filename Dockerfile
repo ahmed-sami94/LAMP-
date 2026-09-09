@@ -3,6 +3,8 @@ FROM ${UBUNTU_IMAGE}
 ARG TARGETARCH
 ENV DEBIAN_FRONTEND=noninteractive PYTHONUNBUFFERED=1
 LABEL org.opencontainers.image.title="LAMP+" \
+      org.opencontainers.image.authors="Ahmed Sami <i@ahmed-sami.me>" \
+      org.opencontainers.image.url="https://ahmed-sami.me/" \
       org.opencontainers.image.source="https://github.com/ahmed-sami94/LAMP-" \
       org.opencontainers.image.licenses="GPL-3.0-only" \
       org.opencontainers.image.version="2.0.0-rc.1"
@@ -32,7 +34,7 @@ COPY panel/ /opt/lampplus/panel/
 COPY assets/ /opt/lampplus/panel/static/brand/
 COPY entrypoint.sh /entrypoint.sh
 COPY config/supervisord.conf /etc/supervisor/conf.d/lampplus.conf
-COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/doc/lampplus/
+COPY LICENSE COPYRIGHT.md THIRD_PARTY_NOTICES.md /usr/share/doc/lampplus/
 RUN chmod +x /entrypoint.sh /opt/lampplus/lampctl \
     && ln -s /opt/lampplus/lampctl /usr/local/bin/lampctl \
     && dpkg-query -W > /opt/lampplus/packages.txt

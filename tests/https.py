@@ -33,7 +33,8 @@ try:
     certificate = WORK / "root.crt"
     for _ in range(60):
         copied = docker("cp", "lampplus-caddy:/data/caddy/pki/authorities/local/root.crt", str(certificate), check=False)
-        if copied.returncode == 0:
+        healthy = docker("exec", "lampplus-https", "python3", "/opt/lampplus/health.py", check=False)
+        if copied.returncode == 0 and healthy.returncode == 0:
             try:
                 response = requests.get("https://localhost:8443/login", verify=str(certificate), timeout=5)
                 if response.status_code == 200:
@@ -55,7 +56,10 @@ try:
     page = session.get("https://localhost:8443/login", timeout=10)
     csrf = re.search(r'name="csrf" value="([^"]+)"', page.text)[1]
     page = session.post("https://localhost:8443/login", data={"csrf": csrf, "username": "admin", "password": secret_file.read_text()}, timeout=10)
-    assert page.status_code == 200 and "New website" in page.text
+    login_errors = re.findall(r'role="alert">([^<]+)', page.text)
+    assert page.status_code == 200 and "New website" in page.text, (
+        f"HTTPS sign-in returned HTTP {page.status_code}; alerts: {login_errors}"
+    )
     csrf = re.search(r'name="csrf-token" content="([^"]+)"', page.text)[1]
     tool = session.get("https://localhost:8443/phpmyadmin/", timeout=20)
     assert tool.status_code == 200 and 'name="pma_username"' in tool.text
