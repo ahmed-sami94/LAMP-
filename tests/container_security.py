@@ -9,7 +9,8 @@ sys.path.insert(0, "/opt/lampplus")
 from common import STATE, rpc
 
 records = [x for x in json.loads((STATE / "sites.json").read_text()) if x["status"] == "ready"]
-first, second = records[:2]
+first = next(site for site in records if site["hostname"] == "studio.localhost")
+second = next(site for site in records if site["hostname"] == "journal.localhost")
 credentials = json.loads((STATE / (first["id"] + ".json")).read_text())
 auth = Path("/run/test-client.cnf")
 auth.write_text(f"[client]\nuser={first['id']}\npassword={credentials['password']}\n")
