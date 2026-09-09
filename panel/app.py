@@ -119,10 +119,10 @@ def create_app(config=None):
     def tool_slash():
         return redirect(request.path + "/")
 
-    @app.route("/phpmyadmin/", defaults={"path": ""}, methods=["GET", "POST"])
-    @app.route("/phpmyadmin/<path:path>", methods=["GET", "POST"])
-    @app.route("/filebrowser/", defaults={"path": ""}, methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
-    @app.route("/filebrowser/<path:path>", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+    @app.route("/phpmyadmin/", endpoint="database_proxy", defaults={"path": ""}, methods=["GET", "POST"])
+    @app.route("/phpmyadmin/<path:path>", endpoint="database_proxy", methods=["GET", "POST"])
+    @app.route("/filebrowser/", endpoint="files_proxy", defaults={"path": ""}, methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+    @app.route("/filebrowser/<path:path>", endpoint="files_proxy", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
     def proxy(path):
         is_files = request.path.startswith("/filebrowser/")
         base = "http://127.0.0.1:" + ("8081" if is_files else "8088")

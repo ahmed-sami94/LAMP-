@@ -3,6 +3,8 @@ from pathlib import Path
 import sys
 import unittest
 from unittest.mock import patch
+import requests
+from urllib3.response import HTTPResponse
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / "runtime"), str(ROOT / "panel")]
@@ -64,6 +66,23 @@ class PanelTests(unittest.TestCase):
     def test_only_allowlisted_actions(self):
         self.authenticate()
         self.assertEqual(self.client.post("/api/actions/shell", json={}, headers={"X-CSRF-Token": "test-csrf"}).status_code, 404)
+
+    def test_tool_mounts_do_not_redirect_to_each_other_or_forward_panel_cookie(self):
+        self.authenticate()
+        def upstream(method, address, **options):
+            self.assertNotIn("lamp_session", options["headers"].get("Cookie", ""))
+            response = requests.Response()
+            response.status_code = 200
+            response._content = address.encode()
+            response._content_consumed = True
+            response.raw = HTTPResponse(headers={})
+            return response
+        with patch("app.requests.request", side_effect=upstream):
+            for path, port in (("/phpmyadmin/", 8088), ("/filebrowser/", 8081)):
+                with self.subTest(path=path):
+                    response = self.client.get(path)
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(response.get_data(as_text=True), f"http://127.0.0.1:{port}{path}")
 
     def test_valid_action_forwarded(self):
         self.authenticate()

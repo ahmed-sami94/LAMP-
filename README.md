@@ -8,6 +8,9 @@ an authenticated owner dashboard, phpMyAdmin and FileBrowser Quantum.
 **2.0.0 is in development. This branch is not yet approved for public hosting.**
 See [release readiness](docs/STATUS.md). No stable v2 image is claimed here.
 
+Documentation: [HTTPS hosting](docs/HOSTING.md) | [Release procedure](docs/RELEASE.md)
+| [Changelog](CHANGELOG.md) | [Contributing](CONTRIBUTING.md)
+
 ## What changes in v2
 
 - Multiple websites with individual databases, credentials and PHP-FPM pools.
