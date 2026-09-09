@@ -100,6 +100,13 @@ def main():
     perform(session, csrf, "site.create", {"hostname": "studio.localhost"}, expect="failed")
     perform(session, csrf, "site.create", {"hostname": "../bad"}, expect="failed")
     perform(session, csrf, "php.update", {"site": first, "memory": 320, "upload": 24, "timeout": 60})
+    probe = f"/srv/sites/{first}/public/acceptance.php"
+    docker("exec", NAME, "python3", "-c", f"from pathlib import Path; p=Path({probe!r}); p.write_text(\"<?php echo json_encode([ini_get('memory_limit'),ini_get('upload_max_filesize'),getenv('LAMP_ADMIN_PASSWORD')]);\"); p.chmod(0o644)")
+    try:
+        settings = session.get(BASE + "/acceptance.php", headers={"Host": "studio.localhost:8080"})
+        assert settings.json() == ["320M", "24M", False], "PHP pool limits or environment isolation differ"
+    finally:
+        docker("exec", NAME, "rm", "-f", probe)
     docker("cp", "tests/container_security.py", NAME + ":/run/container_security.py")
     docker("exec", NAME, "python3", "/run/container_security.py")
     snapshot = perform(session, csrf, "backup.create", {"site": first})["backup"]
@@ -111,12 +118,18 @@ def main():
     restored = requests.get(BASE, headers={"Host": "studio.localhost"}, timeout=20)
     assert restored.status_code == 200 and "Website ready" in restored.text, (restored.status_code, restored.text[:500])
     assert docker("exec", NAME, "mariadb", "--protocol=socket", "-BN", "-e", f"SELECT value FROM `{first}`.acceptance").strip() == "42"
+    perform(session, csrf, "backup.schedule", {"site": first, "enabled": True, "retention": 2})
+    for _ in range(2):
+        perform(session, csrf, "backup.create", {"site": first, "scheduled": True})
+    recovery_points = session.get(BASE + "/api/overview").json()["backups"]
+    assert len(recovery_points) == 2 and all(point["id"] != snapshot for point in recovery_points)
     docker("restart", NAME)
     ready()
     session, csrf = login()
     info = session.get(BASE + "/api/overview").json()
     assert len(info["sites"]) == 2
     assert next(s for s in info["sites"] if s["id"] == first)["php"]["memory"] == 320
+    assert next(s for s in info["sites"] if s["id"] == first)["daily_backup"] is True
     assert len(info["backups"]) == 2
     for tool in ("/phpmyadmin/", "/filebrowser/"):
         response = session.get(BASE + tool)
