@@ -1,6 +1,8 @@
 """Generate root-owned Apache and FPM configuration from validated records."""
+import ipaddress
+import json
 from pathlib import Path
-from common import SITES, hostname, identifier, php_limits
+from common import STATE, SITES, hostname, identifier, php_limits
 
 DENY_PRIVATE = '''
     <FilesMatch "(?i)^(\\.|wp-config\\.php|configuration\\.php|composer\\.(json|lock)|.*\\.(sql|bak|ini|log|env))">
@@ -14,6 +16,11 @@ def site_config(site):
     host = hostname(site["hostname"])
     root = SITES / key / "public"
     limits = php_limits(site["php"])
+    config = json.loads((STATE / "panel.json").read_text())
+    proxy_https = "\n".join(
+        f'SetEnvIfExpr "-R \'{ipaddress.ip_network(network)}\' && req(\'X-Forwarded-Proto\') == \'https\'" HTTPS=on'
+        for network in config["proxies"]
+    )
     Path(f"/etc/php/8.5/fpm/pool.d/{key}.conf").write_text(f'''[{key}]
 user = {key}
 group = {key}
@@ -39,6 +46,7 @@ php_admin_value[open_basedir] = /srv/sites/{key}:/usr/share/php:/etc/ssl/certs
     Path(f"/etc/apache2/sites-enabled/{key}.conf").write_text(f'''<VirtualHost *:80>
     ServerName {host}
     DocumentRoot {root}
+    {proxy_https}
     <Directory {root}>
         Options -Indexes -ExecCGI -FollowSymLinks +SymLinksIfOwnerMatch
         AllowOverride FileInfo

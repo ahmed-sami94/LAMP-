@@ -16,7 +16,8 @@ RUN groupadd -g 1500 lampadmin && useradd -u 1500 -g lampadmin -M -s /usr/sbin/n
     && groupadd -g 1600 lampsites && useradd -u 1600 -g lampsites -M -s /usr/sbin/nologin lampfiles \
  && usermod -aG lampsites www-data \
  && a2dissite 000-default && a2enmod proxy proxy_http proxy_fcgi headers rewrite remoteip \
-    && mkdir -p /opt/lampplus /srv/sites /var/lib/lampplus /var/backups/lampplus /run/lampplus
+ && mkdir -p /opt/lampplus /srv/sites /var/lib/lampplus /var/backups/lampplus /run/lampplus
+RUN rm -rf /var/lib/mysql && install -d -o mysql -g mysql /var/lib/mysql
 COPY dependencies.lock.json /opt/lampplus/dependencies.lock.json
 COPY tools/download.py /opt/lampplus/download.py
 RUN python3 /opt/lampplus/download.py ${TARGETARCH}

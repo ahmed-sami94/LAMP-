@@ -29,8 +29,15 @@ jobs:
           BASE=$(python3 -c 'import json; print(json.load(open("dependencies.lock.json"))["ubuntu"])')
           docker build --build-arg UBUNTU_IMAGE="$BASE" --build-arg TARGETARCH=${{ matrix.arch }} -t lampplus:test .
       - name: Runtime acceptance
-        run: python3 tests/runtime.py
+        timeout-minutes: 15
+        run: python3 -u tests/runtime.py
+      - name: Browser acceptance and real screenshots
+        run: |
+          npm install --no-save --package-lock=false playwright@1.58.2
+          npx playwright install --with-deps chromium
+          node tests/browser.mjs
       - name: Image security scan
+        if: always()
         uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297
         with:
           image-ref: lampplus:test

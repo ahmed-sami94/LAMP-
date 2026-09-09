@@ -122,6 +122,7 @@ def create_site(data, progress):
                     "--admin-password=" + data["password"], "--admin-email=" + data["email"], "--db-type=mysqli",
                     "--db-host=localhost", "--db-user=" + key, "--db-pass=" + password, "--db-name=" + key,
                     "--db-prefix=j_", "--db-encryption=0", "--public-folder="])
+                os.chmod(home / "public/configuration.php", 0o600)
         else:
             # Static placeholder contains no runtime or environment information.
             (home / "public/index.html").write_text("<!doctype html><title>Website ready</title><h1>Website ready</h1>")

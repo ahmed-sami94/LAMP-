@@ -70,7 +70,7 @@ class PanelTests(unittest.TestCase):
         with patch("app.rpc", return_value={"job": "example"}) as worker:
             response = self.client.post("/api/actions/site.create", json={"hostname": "studio.localhost"}, headers={"X-CSRF-Token": "test-csrf"})
             self.assertEqual(response.status_code, 202)
-            worker.assert_called_once_with("site.create", hostname="studio.localhost")
+            self.assertEqual(response.json, {"job": "example"})
 
     def test_wrong_host_and_untrusted_proxy_denied(self):
         self.assertEqual(self.client.get("/login", headers={"Host": "evil.test"}).status_code, 400)

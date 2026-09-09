@@ -15,7 +15,8 @@ BASE = "http://localhost:8080"
 
 
 def docker(*args, check=True):
-    return subprocess.run(["docker", *args], capture_output=True, text=True, check=check).stdout
+    result = subprocess.run(["docker", *args], capture_output=True, text=True, check=check, timeout=180)
+    return result.stdout + (result.stderr if args[0] == "logs" else "")
 
 
 def ready():
@@ -55,7 +56,7 @@ def perform(session, csrf, action, data, expect="complete"):
 
 
 def main():
-    result = subprocess.run(["docker", "run", "--rm", IMAGE], capture_output=True)
+    result = subprocess.run(["docker", "run", "--rm", IMAGE], capture_output=True, timeout=30)
     assert result.returncode != 0, "Missing secrets must fail"
     environment = dict(os.environ, LAMP_ADMIN_PASSWORD=PASSWORD)
     subprocess.run(["docker", "run", "-d", "--name", NAME, "-e", "LAMP_ADMIN_PASSWORD", "-p", "127.0.0.1:8080:80",

@@ -1,0 +1,57 @@
+services:
+  app:
+    image: ahmedsamigmail/lampplus:2.0.0-rc.1
+    build:
+      context: ..
+      args:
+        UBUNTU_IMAGE: ${UBUNTU_IMAGE:?Copy the pinned base from dependencies.lock.json}
+    environment:
+      LAMP_ADMIN_HOST: ${LAMP_ADMIN_HOST:?Set the administration hostname}
+      LAMP_ADMIN_PASSWORD_FILE: /run/secrets/admin_password
+      LAMP_MODE: hosting
+      LAMP_TRUSTED_PROXIES: 172.30.50.2/32
+    secrets:
+      - admin_password
+    volumes:
+      - sites:/srv/sites
+      - database:/var/lib/mysql
+      - state:/var/lib/lampplus
+      - backups:/var/backups/lampplus
+    networks:
+      frontend:
+        ipv4_address: 172.30.50.3
+    restart: unless-stopped
+    stop_grace_period: 60s
+  caddy:
+    image: ${CADDY_IMAGE:?Set the pinned Caddy image from dependencies.lock.json}
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - certificates:/data
+      - caddy_config:/config
+    environment:
+      LAMP_ADMIN_HOST: ${LAMP_ADMIN_HOST:?Set the administration hostname}
+      SITE_HOST: ${SITE_HOST:?Set the website hostname}
+      ACME_EMAIL: ${ACME_EMAIL:?Set your certificate contact email}
+    networks:
+      frontend:
+        ipv4_address: 172.30.50.2
+    restart: unless-stopped
+secrets:
+  admin_password:
+    file: ../secrets/admin_password
+volumes:
+  sites:
+  database:
+  state:
+  backups:
+  certificates:
+  caddy_config:
+networks:
+  frontend:
+    ipam:
+      config:
+        - subnet: 172.30.50.0/24
