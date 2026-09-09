@@ -1,0 +1,61 @@
+name: Verify LAMP+
+on:
+  push:
+    branches: [main, 'release/**']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install test dependencies
+        run: python3 -m pip install flask requests
+      - name: Unit and security tests
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Build pinned image
+        run: |
+          BASE=$(python3 -c 'import json; print(json.load(open("dependencies.lock.json"))["ubuntu"])')
+          docker build --build-arg UBUNTU_IMAGE="$BASE" --build-arg TARGETARCH=${{ matrix.arch }} -t lampplus:test .
+      - name: Runtime acceptance
+        run: python3 tests/runtime.py
+      - name: Image security scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: lampplus:test
+          format: json
+          output: artifacts/trivy.json
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+      - name: SBOM
+        if: always()
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: lampplus:test
+          format: spdx-json
+          output: artifacts/sbom.spdx.json
+          exit-code: '0'
+      - name: Remove private test credentials
+        if: always()
+        run: rm -f artifacts/browser-secret
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-${{ matrix.arch }}
+          path: artifacts/
+      - name: Cleanup disposable test resources
+        if: always()
+        run: |
+          docker rm -f lampplus-test || true
+          docker volume rm lampplus-test-sites lampplus-test-db lampplus-test-state lampplus-test-backups || true

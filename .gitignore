@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+secrets/
+data/
+backups/
+__pycache__/
+*.pyc
+*.log
+artifacts/
+node_modules/
