@@ -1,6 +1,6 @@
 # LAMP+
 
-<img src="assets/logo.png" width="120" alt="LAMP+ logo">
+![LAMP+ - Your PHP workspace. In one container.](assets/banner.png)
 
 An all-in-one Ubuntu container for PHP websites, with Apache, PHP-FPM, MariaDB,
 an authenticated owner dashboard, phpMyAdmin and FileBrowser Quantum.

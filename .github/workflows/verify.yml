@@ -19,7 +19,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Install test dependencies
         run: python3 -m pip install flask requests
       - name: Unit and security tests
@@ -31,7 +31,7 @@ jobs:
       - name: Runtime acceptance
         run: python3 tests/runtime.py
       - name: Image security scan
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297
         with:
           image-ref: lampplus:test
           format: json
@@ -40,7 +40,7 @@ jobs:
           exit-code: '1'
       - name: SBOM
         if: always()
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297
         with:
           image-ref: lampplus:test
           format: spdx-json
@@ -49,7 +49,7 @@ jobs:
       - name: Remove private test credentials
         if: always()
         run: rm -f artifacts/browser-secret
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: verification-${{ matrix.arch }}
