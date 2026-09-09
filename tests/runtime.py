@@ -128,4 +128,8 @@ if __name__ == "__main__":
         Path("artifacts").mkdir(exist_ok=True)
         # Service diagnostics only. Avoid environment inspection or credential files.
         Path("artifacts/container.log").write_text(docker("logs", NAME, check=False))
+        diagnostic = docker("exec", NAME, "cat", "/var/lib/lampplus/last-install-error.json", check=False)
+        if diagnostic:
+            Path("artifacts/installer-error.json").write_text(diagnostic)
+            print("Redacted installer diagnostic:", diagnostic, flush=True)
         raise

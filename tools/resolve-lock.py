@@ -31,7 +31,9 @@ manifest = read("https://registry-1.docker.io/v2/library/ubuntu/manifests/26.04"
     "Authorization": "Bearer " + token,
     "Accept": "application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json",
 })
-lock = {"ubuntu": "ubuntu:26.04@sha256:" + hashlib.sha256(manifest).hexdigest(), "artifacts": {}}
+previous = json.loads((ROOT / "dependencies.lock.json").read_text())
+lock = {"ubuntu": "ubuntu:26.04@sha256:" + hashlib.sha256(manifest).hexdigest(),
+        "caddy": previous["caddy"], "artifacts": {}}
 fb = api("https://api.github.com/repos/gtsteffaniak/filebrowser/releases/latest")
 for arch in ("amd64", "arm64"):
     entry = next(x for x in fb["assets"] if x["name"] == f"linux-{arch}-filebrowser")
